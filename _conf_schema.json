@@ -1,0 +1,79 @@
+{
+  "comment_mode": {
+    "description": "AI 点评怎么来",
+    "type": "string",
+    "default": "rules",
+    "options": [
+      "rules",
+      "llm",
+      "fixed",
+      "off"
+    ],
+    "labels": [
+      "按 persona.py 规则生成（不花钱）",
+      "调用当前对话模型现写",
+      "固定一句",
+      "留空不显示"
+    ],
+    "hint": "只有选「调用当前对话模型现写」才会多一次模型请求。"
+  },
+  "persona_name": {
+    "description": "点评署名（可留空）",
+    "type": "string",
+    "default": "",
+    "hint": "留空就用 persona.py 里的人格名，也用于让模型知道自己在扮演谁。"
+  },
+  "fixed_comment": {
+    "description": "固定点评内容（可留空）",
+    "type": "text",
+    "default": "",
+    "hint": "只有 comment_mode 选 fixed 时才用。留空则退回规则点评。"
+  },
+  "context_mode": {
+    "description": "点评前要不要先读聊天上下文",
+    "type": "string",
+    "default": "off",
+    "options": [
+      "off",
+      "livingmemory",
+      "astrbot"
+    ],
+    "labels": [
+      "不读上下文",
+      "读 livingmemory 的记忆上下文",
+      "读 AstrBot 的会话上下文"
+    ],
+    "hint": "只在 comment_mode = llm 时生效。选 livingmemory 需要装 astrbot_plugin_livingmemory。"
+  },
+  "context_messages": {
+    "description": "读多少条上下文",
+    "type": "int",
+    "default": 12,
+    "slider": {
+      "min": 1,
+      "max": 60,
+      "step": 1
+    },
+    "hint": "条数越多点评越贴，但提示词也越长。"
+  },
+  "show_comment": {
+    "description": "显示 AI 点评栏",
+    "type": "bool",
+    "default": true
+  },
+  "show_mood": {
+    "description": "显示心情值 / 摸鱼值 / 赛博寿命",
+    "type": "bool",
+    "default": true
+  },
+  "show_config": {
+    "description": "显示硬件配置栏",
+    "type": "bool",
+    "default": true
+  },
+  "show_disk": {
+    "description": "显示磁盘占用栏",
+    "type": "bool",
+    "default": true
+  }
+}
