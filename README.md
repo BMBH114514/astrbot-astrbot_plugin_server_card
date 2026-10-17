@@ -1,0 +1,2 @@
+# astrbot-astrbot_plugin_server_card
+astrbot服务器状态卡/astrbot_plugin_server_card
