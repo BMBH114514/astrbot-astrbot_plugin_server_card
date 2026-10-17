@@ -2,6 +2,8 @@
 白木不华
 https://space.bilibili.com/44976513?spm_id_from=333.1007.0.0
 
+这是一个astrbot插件，我不知道怎么提交到插件市场，随便摆个位置放了
+
 
 # 服务器状态卡
 
