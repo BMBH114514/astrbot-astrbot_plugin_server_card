@@ -1,0 +1,16 @@
+name: astrbot_plugin_server_card
+
+display_name: 服务器状态卡
+
+desc: 把主机状态渲染成一张深色卡片，含 CPU、内存、进程占用、硬件配置、磁盘占用与三个状态值，底部带 AI 点评。整张卡的板块顺序、间距、字号、配色全写在 styles/ 的 JSON 里，可以整套推翻重排，还能让选中的那个人格照自己的性格把整张卡重做一遍；每版风格自动存档，设置面板里直接选。
+
+short_desc: 一张图看懂主机状态，还带一句 AI 吐槽。
+
+version: 1.6.0
+
+astrbot_version: ">=4.0,<5"
+
+author: Full
+
+repo: 
+

@@ -1,0 +1,139 @@
+{
+  "comment_mode": {
+    "description": "AI 点评怎么来",
+    "type": "string",
+    "default": "rules",
+    "options": [
+      "rules",
+      "llm",
+      "fixed",
+      "off"
+    ],
+    "labels": [
+      "按 persona.py 规则生成（不花钱）",
+      "调用当前对话模型现写",
+      "固定一句",
+      "留空不显示"
+    ],
+    "hint": "只有选「调用当前对话模型现写」才会多一次模型请求。"
+  },
+  "comment_persona_id": {
+    "description": "点评使用的人格",
+    "type": "string",
+    "_special": "select_persona",
+    "default": "",
+    "hint": "选一个 AstrBot 已有人格，点评会照着它的系统提示词来写。留空则只用下面的署名 + persona.py 规则。"
+  },
+  "persona_name": {
+    "description": "点评署名（可留空）",
+    "type": "string",
+    "default": "",
+    "hint": "留空就用 persona.py 里的人格名，也用于让模型知道自己在扮演谁。"
+  },
+  "fixed_comment": {
+    "description": "固定点评内容（可留空）",
+    "type": "text",
+    "default": "",
+    "hint": "只有 comment_mode 选 fixed 时才用。留空则退回规则点评。"
+  },
+  "context_mode": {
+    "description": "点评前要不要先读聊天上下文",
+    "type": "string",
+    "default": "off",
+    "options": [
+      "off",
+      "livingmemory",
+      "astrbot"
+    ],
+    "labels": [
+      "不读上下文",
+      "读 livingmemory 的记忆上下文",
+      "读 AstrBot 的会话上下文"
+    ],
+    "hint": "只在 comment_mode = llm 时生效。选 livingmemory 需要装 astrbot_plugin_livingmemory。"
+  },
+  "context_messages": {
+    "description": "读多少条上下文",
+    "type": "int",
+    "default": 12,
+    "slider": {
+      "min": 1,
+      "max": 60,
+      "step": 1
+    },
+    "hint": "条数越多点评越贴，但提示词也越长。"
+  },
+  "hw_cache_hours": {
+    "description": "硬件信息缓存小时",
+    "type": "int",
+    "default": 12,
+    "hint": "CPU 型号、内存条、显卡这些基本不变，缓存起来就不用每次出图都等 PowerShell 启动。填 0 表示每次都重新读。"
+  },
+  "code_file": {
+    "description": "代码风格文件",
+    "type": "string",
+    "default": "",
+    "hint": "三选一：留空就走 JSON 样式；填 random 就从所有 code_*.py 里随机抽，每次出图都不一样；填文件名（或用逗号隔开几个）就在这几个里随机抽。现有代码：code_a、code_b、code_c。"
+  },
+  "style_from_persona": {
+    "description": "风格跟随人格",
+    "type": "bool",
+    "default": false,
+    "hint": "开启后整张卡由上面选的「点评人格」亲自设计：配色、字号、圆角、板块顺序都按那个人的性格来，软的人格偏柔和浅色，硬的人格偏深色粗犷。第一次出图会调一次模型，存到 styles/persona_<人格>.json，之后直接复用。想换一版发 /状态卡重做风格。"
+  },
+  "style_name": {
+    "description": "卡片风格名",
+    "type": "string",
+    "default": "default",
+    "hint": "填 styles/ 里的文件名，不用带 .json。现有的：cyber、default、forest、midnight、neon。自己写一份丢进去也能直接填名字用。"
+  },
+  "style_ai_enabled": {
+    "description": "允许用指令让 AI 生成风格",
+    "type": "bool",
+    "default": true,
+    "hint": "开启后发 /状态卡主题 赛博朋克紫、标题大一点，会单独调用一次模型生成一版风格存进 styles/，不影响现有风格。"
+  },
+  "style_versions_keep": {
+    "description": "风格版本保留份数",
+    "type": "int",
+    "default": 8,
+    "hint": "每次做出新风格都会在 styles/_versions/ 存一份，超过这个数自动删最旧的。填 0 表示全留，想临时清空就直接删文件夹。"
+  },
+  "style_auto_backup": {
+    "description": "自动备份当前风格",
+    "type": "bool",
+    "default": true,
+    "hint": "开启后每次出图会把生效中的风格存一份到 styles/_backup/，同一天只存一次。"
+  },
+  "style_backup_keep": {
+    "description": "风格备份保留份数",
+    "type": "int",
+    "default": 10,
+    "slider": {
+      "min": 1,
+      "max": 60,
+      "step": 1
+    },
+    "hint": "超过这个数量会自动删掉最旧的备份。"
+  },
+  "show_comment": {
+    "description": "显示 AI 点评栏",
+    "type": "bool",
+    "default": true
+  },
+  "show_mood": {
+    "description": "显示心情值 / 摸鱼值 / 赛博寿命",
+    "type": "bool",
+    "default": true
+  },
+  "show_config": {
+    "description": "显示硬件配置栏",
+    "type": "bool",
+    "default": true
+  },
+  "show_disk": {
+    "description": "显示磁盘占用栏",
+    "type": "bool",
+    "default": true
+  }
+}

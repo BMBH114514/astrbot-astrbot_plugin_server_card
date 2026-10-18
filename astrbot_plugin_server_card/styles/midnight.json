@@ -1,0 +1,198 @@
+{
+  "bg_top": [
+    4,
+    4,
+    6
+  ],
+  "bg_bottom": [
+    14,
+    14,
+    18
+  ],
+  "glows": [
+    [
+      0.15,
+      0.08,
+      360,
+      [
+        90,
+        90,
+        110
+      ],
+      0.16
+    ],
+    [
+      0.9,
+      0.85,
+      400,
+      [
+        60,
+        60,
+        80
+      ],
+      0.12
+    ]
+  ],
+  "vignette": 0.55,
+  "grid_step": 48,
+  "grid_alpha": 4,
+  "title": [
+    255,
+    255,
+    255
+  ],
+  "subtitle": [
+    255,
+    255,
+    255
+  ],
+  "label": [
+    255,
+    255,
+    255
+  ],
+  "text": [
+    240,
+    244,
+    252
+  ],
+  "sub": [
+    120,
+    130,
+    145
+  ],
+  "faint": [
+    80,
+    88,
+    102
+  ],
+  "split_alpha": 24,
+  "cpu": [
+    148,
+    163,
+    184
+  ],
+  "mem": [
+    203,
+    213,
+    225
+  ],
+  "proc": [
+    148,
+    163,
+    184
+  ],
+  "cfg": [
+    148,
+    163,
+    184
+  ],
+  "disk_c": [
+    156,
+    163,
+    175
+  ],
+  "disk_d": [
+    203,
+    213,
+    225
+  ],
+  "comment": [
+    203,
+    213,
+    225
+  ],
+  "bar_top": [
+    148,
+    163,
+    184
+  ],
+  "bar_bottom": [
+    71,
+    85,
+    105
+  ],
+  "mood_good": [
+    52,
+    211,
+    153
+  ],
+  "mood_mid": [
+    245,
+    158,
+    11
+  ],
+  "mood_bad": [
+    248,
+    113,
+    113
+  ],
+  "width": 1600,
+  "bar_count": 8,
+  "bar_width_ratio": 0.58,
+  "card_radius": 16,
+  "bar_radius": 9,
+  "layout": {
+    "margin_x": 100,
+    "right_x": 1500,
+    "top_margin": 56,
+    "sub_gap": 22,
+    "kpi_gap": 24,
+    "chart_max_h": 286,
+    "mood_x": 940,
+    "mood_slot": 180,
+    "cfg_h": 126,
+    "disk_h": 92,
+    "comment_h": 104,
+    "block_gap": 20,
+    "gaps": {
+      "kpi": 24,
+      "chart": 143,
+      "config": 32,
+      "disk": 20,
+      "comment": 20
+    },
+    "blocks": [
+      "header",
+      "kpi",
+      "chart",
+      "config",
+      "disk",
+      "comment"
+    ]
+  },
+  "fonts": {
+    "title": 46,
+    "subtitle": 16,
+    "time": 15,
+    "kpi_label": 15,
+    "kpi": 52,
+    "axis": 13,
+    "bar_val": 15,
+    "proc": 14,
+    "section": 13,
+    "cfg_label": 12,
+    "cfg_value": 17,
+    "disk": 23,
+    "mood_label": 12,
+    "mood_num": 19,
+    "mood_unit": 11,
+    "mood_word": 12,
+    "comment": 19
+  },
+  "metrics": [
+    {
+      "name": "心情值"
+    },
+    {
+      "name": "摸鱼值"
+    },
+    {
+      "name": "赛博寿命"
+    }
+  ],
+  "show_config": true,
+  "show_disk": true,
+  "show_mood": true,
+  "show_comment": true
+}
