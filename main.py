@@ -54,7 +54,7 @@ STYLES_DIR = os.path.join(PLUGIN_DIR, "styles")
 BACKUP_DIR = os.path.join(STYLES_DIR, "_backup")
 
 # livingmemory 的 register 名和目录名都试一遍
-PLUGIN_VERSION = "1.6.0"
+PLUGIN_VERSION = "1.6.1"
 
 # 每次重做随机抽一个方向，逼模型换一套版面，别老是那副样子
 FREE_MOODS = [

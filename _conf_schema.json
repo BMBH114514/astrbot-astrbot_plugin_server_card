@@ -73,7 +73,7 @@
     "description": "代码风格文件",
     "type": "string",
     "default": "",
-    "hint": "三选一：留空就走 JSON 样式；填 random 就从所有 code_*.py 里随机抽，每次出图都不一样；填文件名（或用逗号隔开几个）就在这几个里随机抽。现有代码：code_a、code_b、code_c。"
+    "hint": "三选一：留空就走 JSON 样式；填 random 就从所有 code_*.py 里随机抽，每次出图都不一样；填文件名（或用逗号隔开几个）就在这几个里随机抽。"
   },
   "style_from_persona": {
     "description": "风格跟随人格",

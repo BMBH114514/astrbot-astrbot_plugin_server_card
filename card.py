@@ -29,6 +29,7 @@ GB = 1024 ** 3
 # 硬件型号基本不变，缓存起来，省得每次出图都等 PowerShell 启动
 HW_CACHE_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), ".hw_cache.json")
 HW_CACHE_HOURS = 12
+HW_CACHE_VER = 2        # 采集字段一变就加一，老缓存自动作废
 
 RAM_BRAND = {
     "unknown": "", "default string": "", "not specified": "", "000000": "",
@@ -83,9 +84,12 @@ def collect():
 
     boot = datetime.datetime.fromtimestamp(psutil.boot_time())
     up = datetime.datetime.now() - boot
-    d["up_h"] = int(up.total_seconds() // 3600)
-    d["up_m"] = int(up.total_seconds() % 3600 // 60)
-    d["up_days"] = d["up_h"] // 24
+    _up_total = int(up.total_seconds())
+    d["up_h"] = _up_total // 3600  # 总小时，persona 里按这个说「开了多少小时」
+    d["up_h24"] = _up_total // 3600 % 24  # 去掉整天后的小时，用于展示
+    d["up_m"] = _up_total % 3600 // 60
+    d["up_s"] = _up_total % 60
+    d["up_days"] = _up_total // 86400
     d["host"] = os.environ.get("COMPUTERNAME", "DESKTOP")
     d["cfg"] = _hardware()
 
@@ -105,21 +109,23 @@ def _hardware():
             if time.time() - os.path.getmtime(HW_CACHE_FILE) < HW_CACHE_HOURS * 3600:
                 with open(HW_CACHE_FILE, encoding="utf-8") as f:
                     cached = json.load(f)
-                if isinstance(cached, dict) and cached.get("cpu"):
+                if (isinstance(cached, dict) and cached.get("cpu")
+                        and cached.get("ver") == HW_CACHE_VER):
                     return cached
     except Exception:
         pass
 
     out = {"cpu": "Unknown CPU", "cores": "-", "threads": "-",
            "gpu": "未知", "os": "Windows", "res": "-",
-           "ram": "-", "build": "-"}
+           "ram": "-", "build": "-", "disk": "-", "ver": HW_CACHE_VER}
     ps = (
         "[Console]::OutputEncoding = [System.Text.Encoding]::UTF8\n"
         "$p  = Get-CimInstance Win32_Processor | Select-Object -First 1\n"
         "$v  = Get-CimInstance Win32_VideoController | "
         "Where-Object { $_.Name -notlike '*Oray*' } | Select-Object -First 1\n"
         "$os = Get-CimInstance Win32_OperatingSystem\n"
-        "$dd = Get-CimInstance Win32_DiskDrive | Select-Object -First 1\n"
+        "$dd = @(Get-CimInstance Win32_DiskDrive | Where-Object { $_.Size -gt 0 } "
+        "| Select-Object Model, Size, MediaType)\n"
         "$k  = Get-ItemProperty 'HKLM:\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion'\n"
         "$m  = @(Get-CimInstance Win32_PhysicalMemory)\n"
         "[ordered]@{ cpu=$p.Name; cores=$p.NumberOfCores; "
@@ -127,7 +133,7 @@ def _hardware():
         "res=($v.CurrentHorizontalResolution.ToString() + ' x ' + "
         "$v.CurrentVerticalResolution.ToString()); ver=$k.DisplayVersion; "
         "build=$k.CurrentBuild; pn=$k.ProductName; mods=$m; "
-        "disk=$dd.Model; dsize=$dd.Size } | ConvertTo-Json -Depth 5 -Compress\n"
+        "disks=$dd } | ConvertTo-Json -Depth 5 -Compress\n"
     )
     try:
         r = subprocess.run(
@@ -155,7 +161,7 @@ def _hardware():
         out["build"] = (j.get("build") or "-").strip()
 
         out["ram"] = _mem_str(j.get("mods") or [])
-        out["disk"] = _disk_str(j.get("disk"), j.get("dsize"))
+        out["disk"] = _disk_str(j.get("disks") or j.get("disk"))
     except Exception:
         pass
 
@@ -192,19 +198,42 @@ def _mem_str(mods):
     return s
 
 
-def _disk_str(model, size):
-    if not model:
-        return "-"
-    low = model.lower()
-    brand = ""
+def _disk_brand(model):
+    low = (model or "").lower()
     for key, name in RAM_DISK_BRAND:
         if key in low:
-            brand = name
-            break
-    cap = int(round((size or 0) / 1e9)) if size else 0
-    if brand:
-        return "%s %dG" % (brand, cap) if cap else brand
-    return model[:18]
+            return name
+    return ""
+
+
+def _disk_str(disks):
+    """把 Win32_DiskDrive 的数组拼成一行，多块盘用 + 连起来。
+
+    超过 3 块就不再逐个列，直接给块数和总容量，免得把硬件栏撑爆。
+    """
+    if not disks:
+        return "-"
+    if isinstance(disks, dict):
+        disks = [disks]
+    disks = [x for x in disks if isinstance(x, dict) and x.get("Model")]
+    if not disks:
+        return "-"
+    parts = []
+    for x in disks:
+        model = (x.get("Model") or "").strip()
+        cap = int(round((x.get("Size") or 0) / 1e9))
+        brand = _disk_brand(model)
+        if brand:
+            parts.append("%s %dG" % (brand, cap) if cap else brand)
+        else:
+            short = model if len(model) <= 13 else model[:12] + "…"
+            parts.append("%s %dG" % (short, cap) if cap else short)
+
+    # 硬件栏那格只够两行，超过两块就把剩下的折成一句
+    if len(parts) > 2:
+        total = sum((x.get("Size") or 0) for x in disks) / 1e9
+        return "%s\n等 %d 盘 %.0fG" % (parts[0], len(parts), total)
+    return "\n".join(parts)
 
 
 def calc_mood(d):
@@ -375,10 +404,14 @@ def render(d, out_path, comment=None, who=None):
     # ---------- 页眉 ----------
     def draw_header(y):
         TX(MX, y, "服务器状态", FT(Fs["title"]), T.title)
-        TX(MX + 2, y + Fs["title"] + sub_gap,
-           "%s  ·  Windows  ·  已运行 %d 小时 %d 分" % (d["host"], d["up_h"], d["up_m"]),
+        _sub_y = y + Fs["title"] + sub_gap
+        TX(MX + 2, _sub_y, "%s  ·  Windows" % d["host"],
            F(Fs["subtitle"]), T.subtitle)
-        TX(RX, y + 14, datetime.datetime.now().strftime("%Y.%m  %H:%M:%S"),
+        TX(MX + 2, _sub_y + Fs["subtitle"] + 7,
+           "已运行   %d 天  %02d 时  %02d 分  %02d 秒" % (
+               d["up_days"], d["up_h24"], d["up_m"], d["up_s"]),
+           F(max(12, Fs["subtitle"] - 2)), T.sub)
+        TX(RX, y + 14, datetime.datetime.now().strftime("%Y.%m.%d  %H:%M:%S"),
            F(Fs["time"]), T.subtitle, "ra")
         ly = y + H_BLK["header"] - 8
         d0.rectangle([MX, ly, MX + 90, ly + 4], fill=T.cpu)
@@ -469,10 +502,12 @@ def render(d, out_path, comment=None, who=None):
                 d0.line([x - 22, y + 22, x - 22, y1 - 22],
                         fill=(255, 255, 255, 18), width=1)
             TX(x, y + 40, lab, F(Fs["cfg_label"]), T.label)
-            s = val
-            while len(s) > 2 and d0.textlength(s, font=F(Fs["cfg_value"], True)) > wid - 26:
-                s = s[:-2] + "…"
-            TX(x, y + 62, s, F(Fs["cfg_value"], True), T.text)
+            fval = F(Fs["cfg_value"], True)
+            for li, one in enumerate(str(val).split("\n")[:2]):
+                s = one
+                while len(s) > 2 and d0.textlength(s, font=fval) > wid - 26:
+                    s = s[:-2] + "…"
+                TX(x, y + 62 + li * (Fs["cfg_value"] + 2), s, fval, T.text)
             x += wid
 
     # ---------- 磁盘 + 三个状态值 ----------

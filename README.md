@@ -91,7 +91,7 @@
 每次调用都会在 AstrBot 运行日志里留一行，格式统一带作者名：
 
 ```
-[astrbot_plugin_server_card] [INFO] [main.py:561]: [状态卡·FULL] 某某(1234567890) 调用了 /状态卡
+[astrbot_plugin_server_card] [INFO] [main.py:561]: [状态卡·FULL] 某某(123456) 调用了 /状态卡
 [astrbot_plugin_server_card] [INFO] [main.py:566]: [状态卡·FULL] 用代码风格 code_xxx.py 画完
 [astrbot_plugin_server_card] [INFO] [main.py:568]: [状态卡·FULL] 出图 0.24s -> .../card_xxx.png
 ```
