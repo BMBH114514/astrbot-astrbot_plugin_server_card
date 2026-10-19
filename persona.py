@@ -7,7 +7,9 @@
 #     d["mem_percent"]  内存占用百分比
 #     d["mem_total_gb"] 内存总量
 #     d["proc_total"]   进程总数
-#     d["up_h"] / d["up_days"]   已运行小时 / 天
+#     d["up_h"]        已运行小时 0-23（展示用）
+#     d["up_total_h"]  已运行总小时（判断用）
+#     d["up_days"]     已运行天数
 #     d["free_c"] / d["free_d"]  剩余空间 GB
 #     d["mood"] / d["mood_word"] 心情值与短语
 #     d["top"]          内存占用排行 [(MB, 进程名), ...]
@@ -24,8 +26,8 @@ class Persona:
         # 开机时长
         if d["up_days"] >= 7:
             bits.append("连着开了 %d 天没关机，你是把它当机房在供" % d["up_days"])
-        elif d["up_h"] >= 24:
-            bits.append("开了 %d 小时，还记得重启俩字怎么写吗" % d["up_h"])
+        elif d["up_total_h"] >= 24:
+            bits.append("开了 %d 小时，还记得重启俩字怎么写吗" % d["up_total_h"])
 
         # CPU
         if d["cpu"] <= 6:

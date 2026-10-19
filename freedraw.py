@@ -12,6 +12,7 @@
 
 import ast
 import builtins
+import os
 
 from PIL import Image, ImageDraw, ImageFont
 
@@ -48,6 +49,62 @@ def _safe_import(name, globals=None, locals=None, fromlist=(), level=0):
 
 
 _SAFE_BUILTINS["__import__"] = _safe_import
+
+
+_ASSET_DIR = ""
+
+
+def set_asset_dir(path):
+    """配置里指定素材目录，留空就自动找常见位置"""
+    global _ASSET_DIR
+    p = (path or "").strip().strip('"')
+    if p and os.path.isdir(p):
+        _ASSET_DIR = p
+    else:
+        _ASSET_DIR = ""
+
+
+def _asset_root():
+    cands = []
+    if _ASSET_DIR:
+        cands.append(_ASSET_DIR)
+    cands.append(os.path.join(os.path.dirname(os.path.abspath(__file__)), "assets"))
+    for c in cands:
+        try:
+            if os.path.isdir(c):
+                return c
+        except Exception:
+            pass
+    return ""
+
+
+def _asset_list():
+    root = _asset_root()
+    if not root:
+        return []
+    try:
+        names = [n for n in os.listdir(root)
+                 if os.path.splitext(n)[1].lower() in (".png", ".jpg", ".jpeg", ".webp", ".bmp")]
+        return sorted(names)[:200]
+    except Exception:
+        return []
+
+
+def _asset(name):
+    """按文件名取素材，返回 RGBA 图，取不到返回 None"""
+    if not name or not isinstance(name, str):
+        return None
+    root = _asset_root()
+    if not root:
+        return None
+    base = os.path.basename(name.strip())
+    path = os.path.join(root, base)
+    if not os.path.isfile(path):
+        return None
+    try:
+        return Image.open(path).convert("RGBA")
+    except Exception:
+        return None
 
 
 def _font(size, bold=False):
@@ -107,6 +164,7 @@ def run(code, data, out_path, comment=None, who=None):
         "Image": Image, "ImageDraw": ImageDraw, "ImageFont": ImageFont,
         "font": _font, "font_big": _font_big,
         "W": W, "H": H, "GB": 1024 ** 3,
+        "asset": _asset, "asset_list": _asset_list,
     }
 
     exec(compile(code, "<card_code>", "exec"), ns)
@@ -125,6 +183,8 @@ HINT = """写一段 Python 代码，用 Pillow 画一张 1600x1200 的服务器�
   font(size, bold=False)          正常字体
   font_big(size)                  标题字体
   W = 1600  H = 1200  GB = 1024**3
+  asset_list()                    素材文件夹里的文件名列表，例如 ["flag.png", "bg.jpg"]
+  asset("flag.png")               按名字取素材，返回 RGBA 图，取不到返回 None
   也可以 import PIL、math、time、random、colorsys、itertools（只有这几个）
   内置：len range min max sum round int float str list dict tuple sorted enumerate zip abs isinstance print
   颜色写 (r, g, b) 或 (r, g, b, a)，0-255
@@ -143,7 +203,13 @@ d 的结构（内存和磁盘是字节，top 里已经是 MB）：
   d["C"], d["D"]    磁盘 C 盘 / D 盘，namedtuple：.total .used .free .percent
   d["proc_total"]   进程总数，int
   d["top"]          [(占用MB, 进程名), ...] 按内存降序，一共 12 个
-  d["up_days"] d["up_h"] d["up_m"]   已经开机几天几小时几分钟
+  d["up_days"]      开机天数（整数）
+  d["up_h"]         开机小时 0-23，已经去掉整天，直接用
+  d["up_total_h"]   开机总小时，只有需要说「总共开了多少小时」时才用
+  d["up_m"]         开机分钟 0-59
+  d["up_s"]         开机秒 0-59
+  d["up_text"]      现成的一句：「3 天 05 时 12 分」，直接贴最省事
+  d["up_text_full"] 带秒的版本
   d["host"]         计算机名
   d["cfg"]          硬件配置 dict：
                       "cpu" CPU型号   "cores" 核数   "threads" 线程数
@@ -155,6 +221,8 @@ d 的结构（内存和磁盘是字节，top 里已经是 MB）：
   who                点评署名，string 或 None
 
 硬性要求：
+  - 想用素材就先 asset_list() 看看有什么，名字必须来自这个列表，别自己编文件名
+  - 素材取到的是 RGBA 图，要自己 resize 到合适尺寸再 paste
   - 不许用 while True，不许碰 open / eval / exec / __ 开头的属性
   - 只画图，不写文件
   - 排版自己设计，别套模板，该大就大该空就空

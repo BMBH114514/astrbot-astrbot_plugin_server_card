@@ -10,6 +10,7 @@ import os
 import random
 import re
 import time
+import traceback
 
 from astrbot.api import logger
 from astrbot.api.event import AstrMessageEvent, filter
@@ -51,10 +52,11 @@ def _extract_json(text):
 PLUGIN_DIR = os.path.dirname(os.path.abspath(__file__))
 OUT_DIR = os.path.join(PLUGIN_DIR, "out")
 STYLES_DIR = os.path.join(PLUGIN_DIR, "styles")
+ERROR_DIR = os.path.join(OUT_DIR, "errors")
 BACKUP_DIR = os.path.join(STYLES_DIR, "_backup")
 
 # livingmemory 的 register 名和目录名都试一遍
-PLUGIN_VERSION = "1.6.1"
+PLUGIN_VERSION = "1.7.0"
 
 # 每次重做随机抽一个方向，逼模型换一套版面，别老是那副样子
 FREE_MOODS = [
@@ -124,6 +126,74 @@ class ServerCard(Star):
 
     def _text(self, key, default=""):
         return str(self._cfg(key, default) or "").strip()
+
+    def _int(self, key, default):
+        try:
+            v = int(float(self._cfg(key, default)))
+            return v if v > 0 else default
+        except Exception:
+            return default
+
+    def _code_provider(self):
+        """单独给生成用的模型，配置留空就退回当前对话模型"""
+        pid = self._text("generator_provider_id")
+        if pid:
+            p = None
+            try:
+                p = self.context.get_provider_by_id(pid)
+            except Exception as e:
+                logger.warning("[状态卡·FULL] 取绘图模型 %s 出错: %s" % (pid, e))
+            if p is not None:
+                logger.info("[状态卡·FULL] 本次生成使用独立模型 %s（%s）"
+                            % (pid, getattr(p, "get_model", lambda: "?")()))
+                return p
+            logger.warning("[状态卡·FULL] 配置的绘图模型 %s 找不到，退回当前对话模型" % pid)
+        try:
+            return self.context.get_using_provider()
+        except Exception:
+            return None
+
+    def _dump_exc(self, tag, exc=None, extra=""):
+        """完整堆栈：进后台日志，同时落一份到 out/errors"""
+        tb = traceback.format_exc()
+        if not tb or tb.strip() in ("NoneType: None", ""):
+            if exc is not None:
+                tb = "".join(traceback.format_exception(type(exc), exc, exc.__traceback__))
+            else:
+                tb = "无堆栈信息"
+        ts = datetime.datetime.now()
+        head = "[状态卡·FULL] %s · %s" % (tag, ts.strftime("%Y-%m-%d %H:%M:%S"))
+        body = head + ("\n" + extra if extra else "") + "\n" + tb
+        logger.error(body)
+        path = ""
+        try:
+            os.makedirs(ERROR_DIR, exist_ok=True)
+            safe = re.sub(r"[^\w\-\u4e00-\u9fa5]", "_", tag)[:40]
+            path = os.path.join(ERROR_DIR, ts.strftime("%Y%m%d_%H%M%S_") + safe + ".log")
+            with open(path, "w", encoding="utf-8") as f:
+                f.write(body)
+        except Exception:
+            path = ""
+        return path
+
+    def _err_report(self, tag, exc=None, brief=""):
+        """按配置决定聊天里回多详细，完整堆栈永远写日志"""
+        mode = self._text("error_report", "brief").lower()
+        path = self._dump_exc(tag, exc, brief)
+        if mode == "off":
+            return "出错了，详细看后台日志"
+        lines = ["出错：%s" % (brief or (str(exc) if exc else "未知"))]
+        if mode == "full":
+            detail = traceback.format_exc()
+            if not detail or detail.strip() in ("NoneType: None", ""):
+                detail = ("%s: %s" % (type(exc).__name__, exc)) if exc else "无堆栈信息"
+            detail = detail.strip()
+            if len(detail) > 1500:
+                detail = detail[:1500] + "\n...(太长截断，完整见文件)"
+            lines.append("```\n%s\n```" % detail)
+        if path:
+            lines.append("完整日志：%s" % path)
+        return "\n".join(lines)
 
     # ---------------- 风格 ----------------
     def _style_file(self, name):
@@ -551,6 +621,7 @@ class ServerCard(Star):
             return text or None
         except Exception as e:
             logger.warning("[状态卡·FULL] LLM 点评失败(%s)，退回规则点评" % e)
+            self._dump_exc("LLM点评", e, "已退回本地规则点评")
             return None
 
     # ---------------- 指令 ----------------
@@ -571,6 +642,7 @@ class ServerCard(Star):
             if code_path:
                 with open(code_path, encoding="utf-8") as f:
                     code = f.read()
+                freedraw.set_asset_dir(self._cfg("asset_dir", ""))
                 await asyncio.to_thread(freedraw.run, code, data, out, comment, who)
                 logger.info("[状态卡·FULL] 用代码风格 %s 画完" % os.path.basename(code_path))
             else:
@@ -581,7 +653,7 @@ class ServerCard(Star):
             yield event.image_result(out)
         except Exception as e:
             logger.error("[状态卡·FULL] 出图失败: %s" % e)
-            yield event.plain_result("状态卡出图失败了：%s" % e)
+            yield event.plain_result(self._err_report("出图失败", e, "状态卡出图失败了：%s" % e))
 
     # ---------------- 让 AI 现写一版风格 ----------------
     _STYLE_HINT = """你在给一张服务器状态卡做整体设计，可以推翻重排，只输出 JSON，不要解释。
@@ -766,7 +838,7 @@ sub_gap / kpi_gap 标题和数字跟上一行的距离
             text = (getattr(resp, "completion_text", "") or "").strip()
         except Exception as e:
             logger.warning("[状态卡·FULL] 生成风格调用失败: %s" % e)
-            yield event.plain_result("模型调用失败了：%s" % e)
+            yield event.plain_result(self._err_report("风格生成失败", e, "模型调用失败了：%s" % e))
             return
 
         data = _extract_json(text)
@@ -789,7 +861,7 @@ sub_gap / kpi_gap 标题和数字跟上一行的距离
             self._archive_style(path)
             self._sync_style_options()
         except Exception as e:
-            yield event.plain_result("风格文件写不进去：%s" % e)
+            yield event.plain_result(self._err_report("风格写入失败", e, "风格文件写不进去：%s" % e))
             return
 
         # 用新风格出一张预览
@@ -803,7 +875,8 @@ sub_gap / kpi_gap 标题和数字跟上一行的距离
         except Exception as e:
             _theme.reset()
             logger.warning("[状态卡·FULL] 预览出图失败: %s" % e)
-            yield event.plain_result("风格存好了（%s），但预览出图失败：%s" % (name, e))
+            yield event.plain_result("风格存好了（%s）\n%s"
+                                     % (name, self._err_report("预览出图失败", e, "预览出图失败")))
             return
         finally:
             _theme.reset()
@@ -820,9 +893,9 @@ sub_gap / kpi_gap 标题和数字跟上一行的距离
         点评和写代码互不依赖，直接同时跑，省掉一半等待。
         """
         t0 = time.time()
-        provider = self.context.get_using_provider()
+        provider = self._code_provider()
         if provider is None:
-            return None, "", "没有可用模型"
+            return None, "", "没有可用模型，检查配置里的「生成用模型」"
 
         apply_config(self.config)
         data = await asyncio.to_thread(collect)
@@ -845,6 +918,8 @@ sub_gap / kpi_gap 标题和数字跟上一行的距离
             prompt += "\n额外要求：%s\n" % desc.strip()
 
         code, last_err, out = None, "", ""
+        last_exc = None
+        gen_timeout = self._int("gen_timeout", 300)
         t_code = 0.0
         for attempt in range(2):
             try:
@@ -855,7 +930,7 @@ sub_gap / kpi_gap 标题和数字跟上一行的距离
                     provider.text_chat(
                         prompt=ask,
                         system_prompt="你是 Python + Pillow 绘图工程师，只输出代码，不要解释。",
-                    ), timeout=60)
+                    ), timeout=gen_timeout)
                 t_code += time.time() - tc
                 code = _extract_code(getattr(resp, "completion_text", "") or "")
 
@@ -870,20 +945,28 @@ sub_gap / kpi_gap 标题和数字跟上一行的距离
                         comment = None
 
                 out = os.path.join(OUT_DIR, "free_%d.png" % int(time.time() * 1000))
+                freedraw.set_asset_dir(self._cfg("asset_dir", ""))
                 await asyncio.to_thread(freedraw.run, code, data, out, comment, who)
                 logger.info("[状态卡·FULL] 第 %d 版跑通 · 采集 %.1fs · 模型 %.1fs · 总 %.1fs"
                             % (attempt + 1, t_collect, t_code, time.time() - t0))
                 return code, out, ""
             except Exception as e:
-                last_err = str(e)[:200]
+                last_exc = e
+                last_err = ("%s: %s" % (type(e).__name__, e)).strip()
+                if last_err.endswith(":") or last_err == "TimeoutError:":
+                    last_err = "%s（等了 %d 秒没出结果，去配置里把生成时限调大）" % (
+                        type(e).__name__, gen_timeout)
                 code = None
                 logger.warning("[状态卡·FULL] 第 %d 版没跑通（已用 %.1fs）: %s"
                                % (attempt + 1, time.time() - t0, last_err))
+                self._dump_exc("代码生成_第%d版" % (attempt + 1), e,
+                               "第 %d 版 · 模型 %.1fs" % (attempt + 1, t_code))
 
         if not comment_task.done():
             comment_task.cancel()
         logger.warning("[状态卡·FULL] 两版都没跑通，总耗时 %.1fs" % (time.time() - t0))
-        return None, "", last_err
+        detail = ("两版都没跑通，最后一个是 %s" % last_err) if last_err else "两版都没跑通"
+        return None, "", self._err_report("自由生成失败", last_exc, detail)
 
     def _save_code(self, code, prefix="code"):
         name = "%s_%s" % (prefix, datetime.datetime.now().strftime("%m%d_%H%M%S"))

@@ -135,5 +135,45 @@
     "description": "显示磁盘占用栏",
     "type": "bool",
     "default": true
+  },
+  "asset_dir": {
+    "description": "素材文件夹（可留空）",
+    "type": "string",
+    "default": "",
+    "hint": "自由生成时模型可以用这里的图片当素材。留空则自动找插件目录下的 assets/。"
+  },
+  "generator_provider_id": {
+    "description": "生成用模型（独立，不影响当前对话）",
+    "type": "string",
+    "_special": "select_provider",
+    "default": "",
+    "hint": "选一个模型专门给这个插件写绘图代码。每次生成会单独向它请求一次，不占用当前对话模型。留空则用当前对话模型。"
+  },
+  "gen_timeout": {
+    "description": "生成时限（秒）",
+    "type": "int",
+    "default": 300,
+    "slider": {
+      "min": 30,
+      "max": 900,
+      "step": 10
+    },
+    "hint": "模型写一版代码最多等多久，超时就判这一版失败。慢模型建议 300 以上。"
+  },
+  "error_report": {
+    "description": "出错时回多少报错",
+    "type": "string",
+    "default": "brief",
+    "options": [
+      "off",
+      "brief",
+      "full"
+    ],
+    "labels": [
+      "只说一句出错了",
+      "简短原因 + 日志路径",
+      "完整堆栈贴进聊天"
+    ],
+    "hint": "不管选哪个，完整堆栈都会写进后台日志和 out/errors 里的 .log 文件。"
   }
 }

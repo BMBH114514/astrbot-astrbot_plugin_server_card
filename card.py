@@ -82,14 +82,19 @@ def collect():
     d["top"] = sorted(((v[0] / 1024 / 1024, k) for k, v in agg.items()),
                       reverse=True)[:Theme.bar_count]
 
+    # 开机时长：全部由总秒数一次算出来，避免小时数不取模出现 287h 这种
     boot = datetime.datetime.fromtimestamp(psutil.boot_time())
-    up = datetime.datetime.now() - boot
-    _up_total = int(up.total_seconds())
-    d["up_h"] = _up_total // 3600  # 总小时，persona 里按这个说「开了多少小时」
-    d["up_h24"] = _up_total // 3600 % 24  # 去掉整天后的小时，用于展示
-    d["up_m"] = _up_total % 3600 // 60
-    d["up_s"] = _up_total % 60
-    d["up_days"] = _up_total // 86400
+    _up_total = max(0, int((datetime.datetime.now() - boot).total_seconds()))
+
+    d["up_days"] = _up_total // 86400                 # 天数
+    d["up_h"] = _up_total // 3600 % 24                # 小时 0-23，展示用
+    d["up_m"] = _up_total // 60 % 60                  # 分钟 0-59
+    d["up_s"] = _up_total % 60                        # 秒 0-59
+    d["up_h24"] = d["up_h"]                           # 老字段，保持兼容
+    d["up_total_h"] = _up_total // 3600               # 总小时，只给文案判断用
+    d["up_text"] = "%d 天 %02d 时 %02d 分" % (d["up_days"], d["up_h"], d["up_m"])
+    d["up_text_full"] = "%d 天 %02d 时 %02d 分 %02d 秒" % (
+        d["up_days"], d["up_h"], d["up_m"], d["up_s"])
     d["host"] = os.environ.get("COMPUTERNAME", "DESKTOP")
     d["cfg"] = _hardware()
 
@@ -408,8 +413,7 @@ def render(d, out_path, comment=None, who=None):
         TX(MX + 2, _sub_y, "%s  ·  Windows" % d["host"],
            F(Fs["subtitle"]), T.subtitle)
         TX(MX + 2, _sub_y + Fs["subtitle"] + 7,
-           "已运行   %d 天  %02d 时  %02d 分  %02d 秒" % (
-               d["up_days"], d["up_h24"], d["up_m"], d["up_s"]),
+           "已运行   " + d["up_text_full"],
            F(max(12, Fs["subtitle"] - 2)), T.sub)
         TX(RX, y + 14, datetime.datetime.now().strftime("%Y.%m.%d  %H:%M:%S"),
            F(Fs["time"]), T.subtitle, "ra")

@@ -6,7 +6,7 @@ desc: 把主机状态渲染成一张深色卡片，含 CPU、内存、进程占�
 
 short_desc: 一张图看懂主机状态，还带一句 AI 吐槽。
 
-version: 1.6.1
+version: 1.7.0
 
 astrbot_version: ">=4.0,<5"
 
