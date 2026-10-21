@@ -1,24 +1,6 @@
-# 运行时产物，不进仓库
 __pycache__/
-*.py[cod]
-*.pyo
-
-# 本机硬件信息缓存（含主机名 / 硬件型号）
-.hw_cache.json
-
-# 出图目录
+*.pyc
 out/
-
-# 运行时生成的风格存档与版本
-styles/_backup/
-styles/_versions/
-
-# 让模型现写代码后存下来的风格文件，各环境不同，不进仓库
-styles/code_*.py
-
-# 编辑器与系统杂物
-.vscode/
-.idea/
-.DS_Store
-Thumbs.db
-*.log
+.hw_cache.json
+assets/*
+!assets/.gitkeep

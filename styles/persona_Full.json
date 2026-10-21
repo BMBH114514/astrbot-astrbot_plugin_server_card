@@ -1,0 +1,217 @@
+{
+  "bg_top": [
+    253,
+    249,
+    251
+  ],
+  "bg_bottom": [
+    237,
+    240,
+    248
+  ],
+  "glows": [
+    [
+      0.16,
+      0.1,
+      430.0,
+      [
+        255,
+        198,
+        216
+      ],
+      0.5
+    ],
+    [
+      0.87,
+      0.18,
+      380.0,
+      [
+        192,
+        222,
+        255
+      ],
+      0.4
+    ],
+    [
+      0.52,
+      0.92,
+      540.0,
+      [
+        212,
+        250,
+        232
+      ],
+      0.3
+    ],
+    [
+      0.74,
+      0.58,
+      320.0,
+      [
+        244,
+        226,
+        255
+      ],
+      0.26
+    ]
+  ],
+  "vignette": 0.05,
+  "grid_step": 36,
+  "grid_alpha": 9,
+  "title": [
+    74,
+    64,
+    80
+  ],
+  "subtitle": [
+    150,
+    140,
+    158
+  ],
+  "label": [
+    164,
+    154,
+    172
+  ],
+  "text": [
+    94,
+    86,
+    104
+  ],
+  "sub": [
+    152,
+    144,
+    160
+  ],
+  "faint": [
+    188,
+    182,
+    194
+  ],
+  "split_alpha": 38,
+  "cpu": [
+    236,
+    142,
+    168
+  ],
+  "mem": [
+    124,
+    196,
+    168
+  ],
+  "proc": [
+    176,
+    156,
+    226
+  ],
+  "cfg": [
+    176,
+    156,
+    226
+  ],
+  "disk_c": [
+    140,
+    178,
+    232
+  ],
+  "disk_d": [
+    124,
+    196,
+    168
+  ],
+  "comment": [
+    200,
+    152,
+    196
+  ],
+  "bar_top": [
+    255,
+    190,
+    210
+  ],
+  "bar_bottom": [
+    186,
+    168,
+    232
+  ],
+  "mood_good": [
+    122,
+    198,
+    160
+  ],
+  "mood_mid": [
+    240,
+    186,
+    118
+  ],
+  "mood_bad": [
+    236,
+    138,
+    138
+  ],
+  "width": 1600,
+  "bar_count": 12,
+  "bar_width_ratio": 0.6,
+  "card_radius": 26,
+  "bar_radius": 10,
+  "layout": {
+    "margin_x": 96,
+    "right_x": 1504,
+    "top_margin": 60,
+    "sub_gap": 18,
+    "kpi_gap": 20,
+    "chart_max_h": 240,
+    "mood_x": 930,
+    "mood_slot": 190,
+    "cfg_h": 132,
+    "disk_h": 96,
+    "comment_h": 112,
+    "block_gap": 20,
+    "gaps": {
+      "header": 24,
+      "comment": 28,
+      "kpi": 26,
+      "chart": 22,
+      "disk": 18,
+      "config": 18
+    },
+    "blocks": [
+      "header",
+      "comment",
+      "kpi",
+      "chart",
+      "disk",
+      "config"
+    ]
+  },
+  "fonts": {
+    "title": 40,
+    "subtitle": 15,
+    "time": 14,
+    "kpi_label": 14,
+    "kpi": 46,
+    "axis": 12,
+    "bar_val": 14,
+    "proc": 13,
+    "section": 13,
+    "cfg_label": 12,
+    "cfg_value": 16,
+    "disk": 22,
+    "mood_label": 12,
+    "mood_num": 18,
+    "mood_unit": 11,
+    "mood_word": 12,
+    "comment": 18
+  },
+  "metrics": [
+    {
+      "name": "心情值"
+    },
+    {
+      "name": "摸鱼度"
+    },
+    {
+      "name": "电量"
+    }
+  ]
+}

@@ -13,6 +13,8 @@ import os
 import sys
 import json
 import random
+import math
+import re
 import datetime
 import subprocess
 import time
@@ -55,8 +57,9 @@ RAM_TYPE = {20: "DDR", 21: "DDR2", 24: "DDR3", 26: "DDR4",
 def collect():
     d = {}
     d["vm"] = psutil.virtual_memory()
-    # 1 秒采样太浪费，0.2 秒够用了，省下来的时间够画半张图
-    d["cpu"] = psutil.cpu_percent(interval=0.2)
+    # 第一次采样是残的（没有基线），扔掉它，再等 1 秒拿稳定的那个
+    psutil.cpu_percent(interval=None)
+    d["cpu"] = psutil.cpu_percent(interval=1.0)
     d["C"] = psutil.disk_usage("C:\\")
     d["D"] = psutil.disk_usage("D:\\")
     d["proc_total"] = len(psutil.pids())
@@ -325,16 +328,47 @@ def _bg(W, H):
     return np.clip(base, 0, 255).astype(np.uint8)
 
 
+def size_label(w, h):
+    """分辨率 + 比例，能约成整数比就约，约不出来给小数"""
+    w, h = int(w), int(h)
+    g = math.gcd(w, h) or 1
+    a, b = w // g, h // g
+    if g > 1 and max(a, b) <= 32:
+        ratio = "%d:%d" % (a, b)
+    else:
+        ratio = ("%.2f:1" % (w / float(h))) if w >= h else ("1:%.2f" % (h / float(w)))
+    return "%d×%d · %s" % (w, h, ratio)
+
+
+_META_RE = re.compile(r"^\d{2,5}\s*×\s*\d{2,5}\s*·")
+
+
+def _split_meta(msg):
+    """点评末尾可能挂着一行尺寸信息，拆出来单独排小字"""
+    if not msg:
+        return msg, ""
+    body, meta = [], ""
+    for ln in str(msg).split("\n"):
+        ln = ln.strip()
+        if _META_RE.match(ln):
+            meta = ln
+        elif ln:
+            body.append(ln)
+    return " ".join(body).strip(), meta
+
+
 def _wrap(draw, text, font, maxw):
-    lines, cur = [], ""
-    for ch in text:
-        if draw.textlength(cur + ch, font=font) > maxw:
+    lines = []
+    for seg in str(text).split("\n"):
+        cur = ""
+        for ch in seg:
+            if draw.textlength(cur + ch, font=font) > maxw:
+                lines.append(cur)
+                cur = ch
+            else:
+                cur += ch
+        if cur:
             lines.append(cur)
-            cur = ch
-        else:
-            cur += ch
-    if cur:
-        lines.append(cur)
     return lines
 
 
@@ -346,7 +380,7 @@ def _mood_color(score, T):
     return T.mood_bad
 
 
-def render(d, out_path, comment=None, who=None):
+def render(d, out_path, comment=None, who=None, meta_in_comment=False):
     """按 layout["blocks"] 的顺序一块一块往下画，块高自己算"""
     T = Theme
     L = T.layout
@@ -380,6 +414,11 @@ def render(d, out_path, comment=None, who=None):
         "comment": L.get("comment_h", 104) + max(0, Fs["comment"] - 19) * 2,
     }
 
+    cbody, cmeta = _split_meta(comment)
+    if cmeta or meta_in_comment:
+        # 点评底下要多一行尺寸，这块跟着长高，别把字挤出去
+        H_BLK["comment"] += int(Fs["comment"] * 0.85)
+
     order = list(L.get("blocks") or ["header", "kpi", "chart", "config", "disk", "comment"])
     if not T.show_config:
         order = [b for b in order if b != "config"]
@@ -393,6 +432,9 @@ def render(d, out_path, comment=None, who=None):
     default_gap = L.get("block_gap", 20)
     top = L.get("top_margin", 56)
     H = int(top + sum(H_BLK[b] + gaps.get(b, default_gap) for b in order)) + 20
+    if meta_in_comment and not cmeta:
+        # 高度出来了才知道写多少，回填
+        cmeta = size_label(W, H)
 
     img = Image.fromarray(_bg(W, H), "RGB")
     d0 = ImageDraw.Draw(img, "RGBA")
@@ -559,7 +601,7 @@ def render(d, out_path, comment=None, who=None):
     # ---------- AI 点评 ----------
     def draw_comment(y):
         persona = Persona()
-        msg = comment or persona.comment(d)
+        msg = cbody or ("" if comment else persona.comment(d))
         label = who or persona.name
         y1 = y + H_BLK["comment"]
         d0.rounded_rectangle([MX, y, RX, y1], radius=T.card_radius,
@@ -567,9 +609,12 @@ def render(d, out_path, comment=None, who=None):
         d0.rectangle([MX, y + 24, MX + 4, y1 - 24], fill=T.comment)
         TX(MX + 28, y + 14, "AI 点评  ·  %s" % label, F(Fs["section"]), T.label)
         fnt = F(Fs["comment"])
-        lines = _wrap(d0, msg, fnt, 1330)[:2]
+        lines = _wrap(d0, msg, fnt, 1330)[:2] if msg else []
         for i, ln in enumerate(lines):
             TX(MX + 28, y + 40 + i * 30, ln, fnt, T.text)
+        if cmeta:
+            TX(MX + 28, y + 40 + max(1, len(lines)) * 30, cmeta,
+               F(max(12, Fs["comment"] - 6)), T.faint)
 
     DRAW = {"header": draw_header, "kpi": draw_kpi, "chart": draw_chart,
             "config": draw_config, "disk": draw_disk, "comment": draw_comment}

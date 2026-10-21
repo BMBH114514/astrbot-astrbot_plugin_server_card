@@ -1,4 +1,191 @@
 {
+  "renderer": {
+    "description": "出图渲染器",
+    "type": "string",
+    "default": "pil",
+    "options": [
+      "pil",
+      "html"
+    ],
+    "labels": [
+      "PIL 直接画（快，0.1~0.7 秒）",
+      "HTML 浏览器渲染（排版强，1~2 秒）"
+    ],
+    "hint": "文件名带 HTML_ 前缀走浏览器，带 PIL_ 前缀走绘图代码，没前缀的按后缀走。"
+  },
+  "canvas": {
+    "description": "代码绘图的画布",
+    "type": "string",
+    "default": "1600x1200",
+    "hint": "填具体尺寸 1080x1920，或者比例 9:16 / 16:9 / 3:4 / 1:1，也认 竖版 / 横版 / 方形。想让它自己换：填 随机内置 = 内置六档里随机；填 随机池 = 从下面「随机画布候选」里随机；填 奇葩比例 = 摇一个离谱的长条比例。指令里临时指定会盖过这里，例如 /状态卡 9:16"
+  },
+  "code_file": {
+    "description": "代码风格文件",
+    "type": "string",
+    "default": "",
+    "hint": "留空走 JSON 样式；填 random 每次随机；填文件名（逗号隔开几个）就在这几个里随机。HTML_ 开头的自动走浏览器。"
+  },
+  "asset_dir": {
+    "description": "素材文件夹（可留空）",
+    "type": "string",
+    "default": "",
+    "hint": "自由生成时模型可以用这里的图片当素材。留空则只找插件目录下的 assets/。"
+  },
+  "rand_mood_list": {
+    "description": "随机方向池（一行一个）",
+    "type": "text",
+    "default": "",
+    "hint": "自由生成没给方向时，从这里随机抽一个。留空用内置的 20 条。想固定风格就只写一行。"
+  },
+  "rand_canvas_list": {
+    "description": "随机画布候选（逗号分隔）",
+    "type": "string",
+    "default": "",
+    "hint": "上面画布填「随机池」时从这里抽；指令里没写尺寸时也当候选池用。写成 1080x1920 或 9:16 都认。留空用内置六档（1600x1200 / 1200x1800 / 1080x1920 / 1440x1440 / 1920x1080 / 1200x1600）。"
+  },
+  "flow_base": {
+    "description": "① 规划时顺手打底稿",
+    "type": "bool",
+    "default": true,
+    "hint": "第①次调用除了定尺寸、挑字段，还要交一段能跑的代码骨架（画布、分区、辅助函数）。后面那版只在骨架上填内容，不从头造。——调用顺序：①规划打底 → ②挑图 → ③画图 → ④点评（与③并行）"
+  },
+  "flow_pick": {
+    "description": "② 从素材里挑图",
+    "type": "bool",
+    "default": true,
+    "hint": "开：多一次调用（纯文本模型够用），按文件名从素材目录挑图。关：这轮不调第二次，一张素材都不画，只出纯图表。"
+  },
+  "flow_palette": {
+    "description": "③ 立绘取色定配色",
+    "type": "bool",
+    "default": true,
+    "hint": "开：指令里点到的立绘会在素材目录里按名字找出来，先本地抽主色（透明像素不参与），再多一次调用把色板拆成主色/副色/点缀色，PIL 和 HTML 两套都按这份配色走。关：整段跳过，一次都不调，也不抽色。"
+  },
+  "flow_metric": {
+    "description": "④ 三个指标按主题起名",
+    "type": "bool",
+    "default": true,
+    "hint": "开：多一次小调用，按这次主题给三根状态条起名，比如通缉程度 / 逃亡进度 / 招供意愿。关：用默认的心情值 / 摸鱼值 / 赛博寿命，或者模板主题里配的名。"
+  },
+  "flow_settle": {
+    "description": "③ 网页截图前多等多久（毫秒）",
+    "type": "int",
+    "default": 400,
+    "hint": "HTML 出图会先等图片解完码、字体读完，再等这么久才截图。立绘是几 MB 的大图、或者机器慢，调大到 800～1500，能避免截到裂图。"
+  },
+  "flow_retry": {
+    "description": "③ 画图失败重试几版",
+    "type": "int",
+    "default": 2,
+    "hint": "默认 2，最多 4。画崩了会把报错回喂再写一版，版数越多总耗时越长，模型慢的话建议留在 2。"
+  },
+  "flow_prelude": {
+    "description": "骨架工具函数（可改）",
+    "type": "text",
+    "default": "",
+    "hint": "每版代码跑之前先执行这段，里面已经定义好 _grad 渐变 / _rr 圆角框 / _txt 写字 / _bar 进度条 / _fit 等比塞图 / _hex 十六进制。模型直接调就不会 NameError。留空用内置那份。"
+  },
+  "style_name": {
+    "description": "卡片风格名",
+    "type": "string",
+    "default": "default",
+    "hint": "填 styles/ 里的文件名，不用带 .json，留空就用 default。"
+  },
+  "style_ai_enabled": {
+    "description": "允许用指令让 AI 生成风格",
+    "type": "bool",
+    "default": true,
+    "hint": "开启后发 /状态卡主题 赛博朋克紫、标题大一点，会单独调用一次模型生成一版风格存进 styles/，不影响现有风格。"
+  },
+  "style_from_persona": {
+    "description": "风格跟随人格",
+    "type": "bool",
+    "default": false,
+    "hint": "开启后整张卡由上面选的「点评人格」亲自设计：配色、字号、圆角、板块顺序都按那个人的性格来，软的人格偏柔和浅色，硬的人格偏深色粗犷。第一次出图会调一次模型，存到 styles/persona_<人格>.json，之后直接复用。想换一版发 /状态卡重做风格。"
+  },
+  "style_versions_keep": {
+    "description": "风格版本保留份数",
+    "type": "int",
+    "default": 8,
+    "hint": "每次做出新风格都会在 styles/_versions/ 存一份，超过这个数自动删最旧的。填 0 表示全留，想临时清空就直接删文件夹。"
+  },
+  "style_auto_backup": {
+    "description": "自动备份当前风格",
+    "type": "bool",
+    "default": true,
+    "hint": "开启后每次出图会把生效中的风格存一份到 styles/_backup/，同一天只存一次。"
+  },
+  "style_backup_keep": {
+    "description": "风格备份保留份数",
+    "type": "int",
+    "default": 10,
+    "slider": {
+      "min": 1,
+      "max": 60,
+      "step": 1
+    },
+    "hint": "超过这个数量会自动删掉最旧的备份。"
+  },
+  "generator_provider_id": {
+    "description": "通用生成模型（没单独配的都走它）",
+    "type": "string",
+    "_special": "select_provider",
+    "default": "",
+    "hint": "一整轮最多调四次：①规划打底稿 ②挑图 ③画图 ④点评。下面五项各自留空就都退回这里。"
+  },
+  "provider_plan": {
+    "description": "① 规划打底稿用模型",
+    "type": "string",
+    "_special": "select_provider",
+    "default": "",
+    "hint": "定尺寸、挑字段、起名字、交代码骨架。要求理解力好，建议用中等以上的模型。"
+  },
+  "provider_pick": {
+    "description": "② 挑图用模型（纯文本即可）",
+    "type": "string",
+    "_special": "select_provider",
+    "default": "",
+    "hint": "只读文件名和分辨率挑图，不用视觉，便宜的够用。关掉「从素材里挑图」这项就轮不到它。"
+  },
+  "provider_palette": {
+    "description": "③ 取色判断用模型",
+    "type": "string",
+    "_special": "select_provider",
+    "default": "",
+    "hint": "只看抽好的 hex 和占比来判断配色，纯文本模型就够；配了多模态的也可以用。留空退回「生成用模型」。关掉「立绘取色定配色」这项就轮不到它。"
+  },
+  "provider_code": {
+    "description": "③ 画图用模型",
+    "type": "string",
+    "_special": "select_provider",
+    "default": "",
+    "hint": "最吃能力的一环，写 Pillow 代码。留空退回「生成用模型」。"
+  },
+  "provider_html": {
+    "description": "HTML 模板用模型",
+    "type": "string",
+    "_special": "select_provider",
+    "default": "",
+    "hint": "/状态卡HTML生成 那条路用它，留空退回「生成用模型」。"
+  },
+  "provider_comment": {
+    "description": "④ 点评用模型",
+    "type": "string",
+    "_special": "select_provider",
+    "default": "",
+    "hint": "和画图同时跑，不额外占时间；留空用当前对话模型（跟着人格走）。"
+  },
+  "gen_timeout": {
+    "description": "生成时限（秒）",
+    "type": "int",
+    "default": 300,
+    "slider": {
+      "min": 30,
+      "max": 900,
+      "step": 10
+    },
+    "hint": "模型写一版代码最多等多久，超时就判这一版失败。慢模型建议 300 以上。"
+  },
   "comment_mode": {
     "description": "AI 点评怎么来",
     "type": "string",
@@ -63,59 +250,6 @@
     },
     "hint": "条数越多点评越贴，但提示词也越长。"
   },
-  "hw_cache_hours": {
-    "description": "硬件信息缓存小时",
-    "type": "int",
-    "default": 12,
-    "hint": "CPU 型号、内存条、显卡这些基本不变，缓存起来就不用每次出图都等 PowerShell 启动。填 0 表示每次都重新读。"
-  },
-  "code_file": {
-    "description": "代码风格文件",
-    "type": "string",
-    "default": "",
-    "hint": "三选一：留空就走 JSON 样式；填 random 就从所有 code_*.py 里随机抽，每次出图都不一样；填文件名（或用逗号隔开几个）就在这几个里随机抽。"
-  },
-  "style_from_persona": {
-    "description": "风格跟随人格",
-    "type": "bool",
-    "default": false,
-    "hint": "开启后整张卡由上面选的「点评人格」亲自设计：配色、字号、圆角、板块顺序都按那个人的性格来，软的人格偏柔和浅色，硬的人格偏深色粗犷。第一次出图会调一次模型，存到 styles/persona_<人格>.json，之后直接复用。想换一版发 /状态卡重做风格。"
-  },
-  "style_name": {
-    "description": "卡片风格名",
-    "type": "string",
-    "default": "default",
-    "hint": "填 styles/ 里的文件名，不用带 .json。现有的：cyber、default、forest、midnight、neon。自己写一份丢进去也能直接填名字用。"
-  },
-  "style_ai_enabled": {
-    "description": "允许用指令让 AI 生成风格",
-    "type": "bool",
-    "default": true,
-    "hint": "开启后发 /状态卡主题 赛博朋克紫、标题大一点，会单独调用一次模型生成一版风格存进 styles/，不影响现有风格。"
-  },
-  "style_versions_keep": {
-    "description": "风格版本保留份数",
-    "type": "int",
-    "default": 8,
-    "hint": "每次做出新风格都会在 styles/_versions/ 存一份，超过这个数自动删最旧的。填 0 表示全留，想临时清空就直接删文件夹。"
-  },
-  "style_auto_backup": {
-    "description": "自动备份当前风格",
-    "type": "bool",
-    "default": true,
-    "hint": "开启后每次出图会把生效中的风格存一份到 styles/_backup/，同一天只存一次。"
-  },
-  "style_backup_keep": {
-    "description": "风格备份保留份数",
-    "type": "int",
-    "default": 10,
-    "slider": {
-      "min": 1,
-      "max": 60,
-      "step": 1
-    },
-    "hint": "超过这个数量会自动删掉最旧的备份。"
-  },
   "show_comment": {
     "description": "显示 AI 点评栏",
     "type": "bool",
@@ -136,29 +270,17 @@
     "type": "bool",
     "default": true
   },
-  "asset_dir": {
-    "description": "素材文件夹（可留空）",
-    "type": "string",
-    "default": "",
-    "hint": "自由生成时模型可以用这里的图片当素材。留空则自动找插件目录下的 assets/。"
+  "show_meta": {
+    "description": "AI 点评里带本次的分辨率与比例",
+    "type": "bool",
+    "default": true,
+    "hint": "打开后，点评说完会另起一行补一句 2162×964 · 2.24:1，字号比点评小一档、颜色浅一些；比例能约成整数比就给 9:16 / 1:1，约不出来给 2.24:1。内置版式、代码风格、网页模板、自由生成都跟得上"
   },
-  "generator_provider_id": {
-    "description": "生成用模型（独立，不影响当前对话）",
-    "type": "string",
-    "_special": "select_provider",
-    "default": "",
-    "hint": "选一个模型专门给这个插件写绘图代码。每次生成会单独向它请求一次，不占用当前对话模型。留空则用当前对话模型。"
-  },
-  "gen_timeout": {
-    "description": "生成时限（秒）",
+  "hw_cache_hours": {
+    "description": "硬件信息缓存小时",
     "type": "int",
-    "default": 300,
-    "slider": {
-      "min": 30,
-      "max": 900,
-      "step": 10
-    },
-    "hint": "模型写一版代码最多等多久，超时就判这一版失败。慢模型建议 300 以上。"
+    "default": 12,
+    "hint": "CPU 型号、内存条、显卡这些基本不变，缓存起来就不用每次出图都等 PowerShell 启动。填 0 表示每次都重新读。"
   },
   "error_report": {
     "description": "出错时回多少报错",
@@ -175,5 +297,35 @@
       "完整堆栈贴进聊天"
     ],
     "hint": "不管选哪个，完整堆栈都会写进后台日志和 out/errors 里的 .log 文件。"
+  },
+  "prompt_plan": {
+    "description": "① 规划提示词（先定尺寸和要显示的字段）",
+    "type": "text",
+    "default": "你在规划一张服务器状态卡，只输出 JSON，不要解释，不要 markdown 围栏。\n\n{REQ}\n\n可用的数据（只能用这些，没有别的）：\n  cpu            CPU 占用百分比\n  vm             .total .used .free .percent（字节 / 百分比）\n  C / D          磁盘，同上\n  proc_total     进程总数\n  top            内存占用前 12 名，[(占用MB, 进程名), ...]\n  up_text        开机时长，现成的一句话\n  up_days up_h up_m up_s\n  cfg            硬件 dict：cpu cores threads gpu os ram disk\n  mood slack life  三个 0-100 的分\n\n输出这个结构：\n\n{\n  \"width\": 1200,\n  \"height\": 1800,\n  \"title\": \"顶部主标题\",\n  \"blocks\": [\n    {\"name\": \"给人看的名字\", \"field\": \"cpu\", \"unit\": \"%\", \"kind\": \"big\", \"note\": \"想怎么表现\"}\n  ],\n  \"palette\": \"具体配色，写色值\",\n  \"layout\": \"版面怎么分，两三句\"\n}\n\n规则：\n  - 尺寸：{SIZE_RULE}\n  - blocks 挑 4 到 7 块，别把数据全塞满，挑对这台机器最有意思的\n  - name 可以换叫法，比如 vm.percent 就叫「内存压力」\n  - unit 没单位就留空字符串\n  - kind 只能填 big / bar / list / text\n",
+    "hint": "{REQ} 换成用户那句要求和视觉方向，{SIZE_RULE} 换成尺寸规定。留空用内置。"
+  },
+  "prompt_code": {
+    "description": "② PIL 绘图的提示词（让模型写画图代码）",
+    "type": "text",
+    "default": "写一段 Python 代码，用 Pillow 画一张 {W}x{H} 的服务器状态卡。\n\n环境里已经准备好的（直接就能用，不用 import）：\n  Image / ImageDraw / ImageFont\n  font(size, bold=False)          正常字体\n  font_big(size)                  标题字体\n  W = {W}  H = {H}  GB = 1024**3\n  asset_list()                    素材清单（相对路径），例如 [\"人物甲/a.jpg\", \"bg.png\"]\n  asset(\"人物甲/a.jpg\")             按清单里的名字取素材，返回 RGBA 图，取不到返回 None\n\n素材清单（全部就这些，名字必须一字不差，不许自己编）：\n{ASSETS}\n  math、random、time、colorsys、itertools、datetime 已经在环境里，直接调，不用 import\n  内置：len range min max sum round int float str list dict tuple sorted enumerate zip abs isinstance print\n  颜色写 (r, g, b) 或 (r, g, b, a)，0-255\n\n必须定义这个函数，签名固定：\n\n  def draw(d, out_path, comment=None, who=None):\n      ...\n\n最后一定要 img.save(out_path)。\n\nd 的结构（内存和磁盘是字节，top 里已经是 MB）：\n\n  d[\"cpu\"]          CPU 占用百分比，float，例如 2.9\n  d[\"vm\"]           内存，namedtuple：.total .used .free .percent（字节 / 百分比）\n  d[\"C\"], d[\"D\"]    磁盘 C 盘 / D 盘，namedtuple：.total .used .free .percent\n  d[\"proc_total\"]   进程总数，int\n  d[\"top\"]          [(占用MB, 进程名), ...] 按内存降序，一共 12 个\n  d[\"up_days\"]      开机天数（整数）\n  d[\"up_h\"]         开机小时 0-23，已经去掉整天，直接用\n  d[\"up_total_h\"]   开机总小时，只有需要说「总共开了多少小时」时才用\n  d[\"up_m\"]         开机分钟 0-59\n  d[\"up_s\"]         开机秒 0-59\n  d[\"up_text\"]      现成的一句：「3 天 05 时 12 分」，直接贴最省事\n  d[\"up_text_full\"] 带秒的版本\n  d[\"host\"]         计算机名\n  d[\"cfg\"]          硬件配置 dict：\n                      \"cpu\" CPU型号   \"cores\" 核数   \"threads\" 线程数\n                      \"gpu\" 显卡      \"os\" 系统        \"ram\" 内存条品牌容量\n                      \"disk\" 硬盘型号 \"build\" 版本号\n  d[\"mood\"] d[\"mood_word\"]     综合状态分（0-100）和对应词\n  d[\"slack\"] d[\"life\"]         另外两个 0-100 的分\n  comment            AI 点评那段话，string 或 None\n  who                点评署名，string 或 None\n\n硬性要求：\n  - 上面素材清单里有的图，能用就用；用户提到的名字（人、队、作品、地区、角色）如果在清单里出现，必须把那几张图真的取出来当主视觉，不许只在文字里写这个名字就算数\n  - 素材图很大，取到先按目标区域等比裁切或缩放再 paste，别整张糊上去\n  - 素材取到的是 RGBA 图，要自己 resize 到合适尺寸再 paste\n  - 不许用 while True，不许碰 open / eval / exec / __ 开头的属性\n  - 只画图，不写文件\n  - 排版自己设计，别套模板，该大就大该空就空\n  - 画布 {W}x{H}，所有内容必须落在里面，底边至少留 40 像素，别画出界\n  - 别让两段文字压在一起，排完自己算一下每块占了多高\n  - 只要代码，不要解释，不要 markdown 围栏\n\n示例骨架（只示意，别照着写）：\n\n  def draw(d, out_path, comment=None, who=None):\n      img = Image.new(\"RGB\", (W, H), (12, 16, 26))\n      dr = ImageDraw.Draw(img)\n      dr.text((64, 64), \"SERVER\", font=font_big(64), fill=(255, 255, 255))\n      dr.text((64, 180), \"CPU %.0f%%\" % d[\"cpu\"], font=font(40), fill=(120, 200, 255))\n      img.save(out_path)\n",
+    "hint": "{W} {H} 会换成画布宽高。留空用内置。"
+  },
+  "prompt_html": {
+    "description": "③ HTML 绘图的提示词（让模型写网页模板）",
+    "type": "text",
+    "default": "写一个 Python 文件，里面放一整页 HTML，用来做 {W}x{H} 的服务器状态卡。\n\n文件就长这样，TEMPLATE 里是完整网页：\n\nTEMPLATE = '''\n<!doctype html>\n<html><head><meta charset=\"utf-8\"><style>\n  html,body{margin:0;padding:0;width:{W}px;height:{H}px;overflow:hidden}\n</style></head><body>\n  <div style=\"font-size:80px\">{{ host }}</div>\n</body></html>\n'''\n\n模板变量（只有这些，没有别的，别去翻原始数据）：\n\n  host            计算机名\n  up / now        运行时长（现成的一句话） / 当前时间\n  cpu             CPU 占用百分比，字符串，不带 % 号\n  mem_pct         内存占用百分比，字符串，不带 % 号\n  mem_used mem_total   内存已用 / 总量，单位 GB 的数值\n  proc_total      进程总数\n  bars            进程占用前 12 条，每项 name mb pct\n                  mb 是兆字节数，pct 是 0~100 的占比\n  cfg             硬件配置，字段 cpu cores threads gpu os ram disk\n  disks           磁盘，每项 tag used total pct color\n                  used total 是 GB 数值，pct 是百分比，color 是现成的颜色\n  moods           三个状态值，每项 name val word color\n                  val 是 0~100，word 是现成的评价词，color 是现成的颜色\n  comment / who   点评那段话 / 点评署名\n  c               备用配色（都是 CSS 颜色）：bg_top bg_bottom title subtitle label text\n                  sub faint cpu mem proc cfg disk_c disk_d comment bar_top bar_bottom split card hair\n  fs              备用字号（数字）：title subtitle kpi section comment\n\n硬性要求：\n\n  - 只输出这一个 Python 文件的内容，不要解释，不要 markdown 围栏\n  - 文件里只需要 TEMPLATE = '''...''' 这一句，别的语句别写\n  - 画布 {W}x{H}，html 和 body 都要 margin:0 padding:0 overflow:hidden\n  - 不许引用外部资源：不能有外链图片、外链字体、CDN、http 链接，只能用内联 CSS、渐变、SVG\n  - 不许写 script\n  - 字体写 font-family:\"Microsoft YaHei\",\"PingFang SC\",sans-serif\n  - 数值自己补单位：cpu / mem_pct 后面加 %，mb 后面加 MB，used / total 后面加 GB\n  - 颜色和字号自己调，c 和 fs 只是备用，别拿它当标准答案\n  - 版式自己设计，想怎么排怎么排，别套模板，别堆一样的卡片\n  - 该有的信息别漏：主机名、CPU、内存、进程、磁盘、点评，怎么摆你定\n  - 所有内容必须落在画布里面，别画到界外\n\n示例骨架（只示意，别照着写）：\n\nTEMPLATE = '''\n<!doctype html>\n<html><head><meta charset=\"utf-8\"><style>\n  html,body{margin:0;padding:0;width:1600px;height:1200px;overflow:hidden;\n    background:#f4f1ea;font-family:\"Microsoft YaHei\",sans-serif;color:#1c1a17}\n  .host{font-size:96px;padding:80px 80px 10px}\n</style></head><body>\n  <div class=\"host\">{{ host }}</div>\n  <div style=\"padding:0 80px;font-size:32px\">CPU {{ cpu }}% · 内存 {{ mem_pct }}%</div>\n</body></html>\n'''",
+    "hint": "{W} {H} 会换成画布宽高。留空用内置。"
+  },
+  "prompt_style": {
+    "description": "④ 整套风格设计的提示词（重做卡片风格用）",
+    "type": "text",
+    "default": "你在给一张服务器状态卡做整体设计，可以推翻重排，只输出 JSON，不要解释。\n\n颜色都是 [r,g,b]，0-255 整数。\n\n【背景】\nbg_top / bg_bottom  ／ 渐变上下两个颜色\nglows               光斑，最多 5 个，每项 [x比例, y比例, 半径, [r,g,b], 强度]\nvignette            暗角强度 0~1\ngrid_step / grid_alpha  网格间距(像素，0 就关掉)和透明度(0-255)\n\n【配色】\ntitle / subtitle / label / text / sub / faint   各级文字颜色\ncpu / mem / proc / cfg / disk_c / disk_d / comment   各板块主色\nbar_top / bar_bottom   柱子渐变色\nmood_good / mood_mid / mood_bad   状态值按分数自动换色\nsplit_alpha            分隔线透明度\ncard_radius / bar_radius  卡片和柱子圆角\n\n【字号】fonts 里 18 项，按需改：\ntitle subtitle time kpi_label kpi axis bar_val proc section cfg_label cfg_value disk mood_label mood_num mood_unit mood_word comment\n\n【版式】layout 是整个框架，布局由下面这些决定：\nblocks   六块的顺序，可任意重排，可选值：header(页眉) kpi(三指标) chart(柱状图) config(硬件配置) disk(磁盘和状态值) comment(AI点评)\n         例：[\"comment\",\"header\",\"kpi\",\"disk\",\"config\",\"chart\"] 就是把点评提到最上面\ngaps     每块下面空多少像素，键同上\nblock_gap 没单独指定时的默认间距\ntop_margin 顶部留白\nmargin_x / right_x 左右留白\nchart_max_h 柱子最高高度，压矮一点更紧凑\ncfg_h / disk_h / comment_h 这三张卡的高度\nmood_x / mood_slot 状态值那一排的起点和间距\nsub_gap / kpi_gap 标题和数字跟上一行的距离\n\n【状态值名字】metrics 形如 [{\"name\":\"心情值\"},{\"name\":\"摸鱼值\"},{\"name\":\"赛博寿命\"}]\n\n要推翻重做就直接改 blocks 顺序、gaps、卡高、字号和配色，不要只换颜色。\n",
+    "hint": "输出主题 JSON 的那份。留空用内置。"
+  },
+  "prompt_comment": {
+    "description": "⑤ 点评的提示词",
+    "type": "text",
+    "default": "你正在给一台电脑出状态卡，用一两句话点评，不超过 70 个字，口语，别用括号别用表情，别复述数字。\n{NAME}{STYLE}{CTX}\n这台机器：{BODY}\n只输出这句话。",
+    "hint": "{NAME} 人格名，{STYLE} 风格方向，{CTX} 聊天上下文，{BODY} 这台机器的数据。留空用内置。"
   }
 }
